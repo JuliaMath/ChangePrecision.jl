@@ -1,10 +1,7 @@
 # ChangePrecision
 
 [![Build Status](https://travis-ci.org/stevengj/ChangePrecision.jl.svg?branch=master)](https://travis-ci.org/stevengj/ChangePrecision.jl)
-
-[![Coverage Status](https://coveralls.io/repos/stevengj/ChangePrecision.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/stevengj/ChangePrecision.jl?branch=master)
-
-[![codecov.io](http://codecov.io/github/stevengj/ChangePrecision.jl/coverage.svg?branch=master)](http://codecov.io/github/stevengj/ChangePrecision.jl?branch=master)
+[![Build status](https://ci.appveyor.com/api/projects/status/erbe16srnav0wrfu?svg=true)](https://ci.appveyor.com/project/StevenGJohnson/changeprecision-jl)
 
 This package makes it easy to change the "default" precision of a large body of Julia code, simply by prefixing it with the `@changeprecision T expression` macro, for example:
 
