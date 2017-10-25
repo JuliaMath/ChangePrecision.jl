@@ -28,6 +28,13 @@ const changefuncs = Set([randfuncs..., matfuncs..., intfuncs...])
 
 changeprecision(T, x) = x
 changeprecision(T::Type, x::Float64) = parse(T, string(x)) # change float literals
+function changeprecision(T, x::Symbol)
+    if x ∈ (:Inf, :NaN)
+        return :(convert($T, $x))
+    else
+        return x
+    end
+end
 function changeprecision(T, x::Float64)
     if T === :Float16
         return Float16(x)

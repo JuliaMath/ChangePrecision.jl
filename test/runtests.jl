@@ -14,5 +14,7 @@ using Base.Test
         @test @changeprecision(T, ones(Float64, 2,3)) isa Matrix{Float64}
         @test @changeprecision(T, sin(1)) isa T
         @test @changeprecision(T, sqrt(2)) isa T
+        @test isequal(@changeprecision(T, Inf)::T, Inf)
+        @test isequal(@changeprecision(T, NaN)::T, NaN)
     end
 end
