@@ -9,7 +9,11 @@ export @changeprecision
 
 const randfuncs = (:rand, :randn, :randexp) # random-number generators
 const matfuncs = (:ones, :zeros, :eye) # functions to construct arrays
-#from https://docs.julialang.org/en/release-0.6/manual/mathematical-operations/, up to date as of 0.6
+const complexfuncs = (:abs, :angle) # functions that give Float64 for Complex{Int}
+const binaryfuncs = (:*, :+, :-, :^) # binary functions on irrationals that make Float64
+
+# math functions that convert integer-like arguments to floating-point results
+# (from https://docs.julialang.org/en/release-0.6/manual/mathematical-operations/, up to date as of 0.6)
 const intfuncs = (:/, :\, :inv, :float,
                   # powers logs and roots
                   :√,:∛,:sqrt,:cbrt,:hypot,:exp,:exp2,:exp10,:expm1,:log,:log2,:log10,:log1p,:cis,
@@ -26,9 +30,24 @@ const intfuncs = (:/, :\, :inv, :float,
                   :asind,  :acosd,  :atand,  :acotd,  :asecd,  :acscd,
                   # special functions
                   :gamma,:lgamma,:lfact,:beta,:lbeta)
-const complexfuncs = (:abs, :angle) # functions that give Float64 for Complex{Int}
-const binaryfuncs = (:*, :+, :-, :^) # binary functions on irrationals that make Float64
-const changefuncs = Set([randfuncs..., matfuncs..., intfuncs..., complexfuncs..., binaryfuncs...])
+
+
+# functions that convert integer arrays to floating-point results
+const arrayfuncs = (:mean, :std, :stdm, :var, :varm, :median, :cov, :cor, :xcorr,
+                    :norm, :vecnorm, :normalize,
+                    :factorize, :cholfact, :bkfact, :ldltfact, :lufact, :qrfact,
+                    :lu, :chol, :qr, :lqfact, :lq,
+                    :eig, :eigvals, :eigfact, :eigmax, :eigmin, :eigvecs,
+                    :hessfact, :schurfact, :schur, :ordschur,
+                    :svdfact, :svd, :svdvals,
+                    :cond, :condskeel,
+                    :det, :logdet, :logabsdet,
+                    :pinv, :nullspace, :linreg,
+                    :expm, :sqrtm, :logm, :lyap, :sylvester, :eigs)
+
+# functions to change to ChangePrecision.func(T, ...) calls:
+const changefuncs = Set([randfuncs..., matfuncs..., intfuncs..., complexfuncs..., binaryfuncs..., arrayfuncs...])
+
 changeprecision(T, x) = x
 changeprecision(T::Type, x::Float64) = parse(T, string(x)) # change float literals
 function changeprecision(T, x::Symbol)
@@ -116,6 +135,7 @@ const HWInt = Union{Bool,Int8,Int16,Int32,Int64,Int128,UInt8,UInt16,UInt32,UInt6
 const RatLike = Union{Rational{<:HWInt}, Complex{<:Rational{<:HWInt}}}
 const IntLike = Union{HWInt, Complex{<:HWInt}}
 const Promotable = Union{IntLike, RatLike, Irrational}
+const PromotableNoRat = Union{IntLike, Irrational}
 
 # we want to change expressions like 1/2 to produce the new floating-point type
 for f in intfuncs
@@ -152,7 +172,7 @@ for f in binaryfuncs
 end
 -(T::Type, x::Irrational) = Base.:-(tofloat(T, x))
 
-^(T, x::Promotable, y::Union{RatLike,Complex{<:HWInt}}) = Base.:^(tofloat(T, x), y)
+^(T, x::Union{AbstractMatrix{<:Promotable},Promotable}, y::Union{RatLike,Complex{<:HWInt}}) = Base.:^(tofloat(T, x), y)
 
 # e^x is handled specially
 const esym = VERSION < v"0.7.0-DEV.1592" ? :e : :ℯ # changed in JuliaLang/julia#23427
@@ -168,7 +188,48 @@ else
     @inline literal_pow(T, op, x, p) = Base.literal_pow(op, x, p)
 end
 
+for f in (arrayfuncs...)
+    # for functions like factorize, if we are converting the matrix to floating-point
+    # anyway then we might as well call factorize! instead to overwrite our temp array:
+    if f ∈ (:factorize, :cholfact, :bkfact, :ldltfact, :lufact, :qrfact, :lqfact, :eigfact, :svdfact, :eigvals!, :svdvals!, :median)
+        f! = Symbol(f, :!)
+        @eval begin
+            $f(T, x::AbstractArray{<:Promotable}, args...; kws...) = Base.$f!(tofloat(T, x), args...; kws...)
+            $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray{<:Promotable}, args...; kws...) = Base.$f!(tofloat(T, x), tofloat(T, y), args...; kws...)
+        end
+    else
+        @eval begin
+            $f(T, x::AbstractArray{<:Promotable}, args...; kws...) = Base.$f(tofloat(T, x), args...; kws...)
+            $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray{<:Promotable}, args...; kws...) = Base.$f(tofloat(T, x), tofloat(T, y), args...; kws...)
+        end
+    end
+    @eval begin
+        $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray, args...; kws...) = Base.$f(x, y, args...; kws...)
+        $f(T, args...; kws...) = Base.$f(args...; kws...)
+    end
+end
+for f in (:varm, :stdm) # look at type of second (scalar) argument
+    @eval begin
+        $f(T, x::AbstractArray{<:Promotable}, m::Union{AbstractFloat,Complex{<:AbstractFloat}}, args...; kws...) = Base.$f(x, m, args...; kws...)
+        $f(T, x::AbstractArray{<:PromotableNoRat}, m::PromotableNoRat, args...; kws...) = Base.$f(tofloat(T, x), tofloat(T, m), args...; kws...)
+    end
+end
+inv(T, x::AbstractArray{<:PromotableNoRat}) = Base.inv(tofloat(T, x))
+/(T, x::AbstractArray{<:Promotable}, y::Union{PromotableNoRat,AbstractArray{<:PromotableNoRat}}) = Base.:/(tofloat(T, x), tofloat(T, y))
+\(T, y::Union{PromotableNoRat,AbstractArray{<:PromotableNoRat}}, x::AbstractArray{<:Promotable}) = Base.:\(tofloat(T, y), tofloat(T, x))
+
+# more array functions that are exact for rationals: don't convert
+for f in (:mean, :median, :var, :std, :cor, :cov, :ldltfact, :lufact)
+    @eval begin
+        $f(T, x::AbstractArray{<:RatLike}, y::AbstractArray{<:Promotable}, args...; kws...) = Base.$f(tofloat(T, x), tofloat(T, y), args...; kws...)
+        $f(T, x::AbstractArray{<:RatLike}, y::AbstractArray{<:RatLike}, args...; kws...) = Base.$f(x, y, args...; kws...)
+        $f(T, x::AbstractArray{<:RatLike}, args...; kws...) = Base.$f(x, args...; kws...)
+    end
+end
+
 @inline tofloat(T, x) = T(x)
 @inline tofloat(::Type{T}, x::Complex) where {T<:Real} = Complex{T}(x)
+@inline tofloat(T, x::AbstractArray) = copy!(similar(x, T), x)
+@inline tofloat(::Type{T}, x::AbstractArray{<:Complex}) where {T<:Real} = copy!(similar(x, Complex{T}), x)
 
 end # module

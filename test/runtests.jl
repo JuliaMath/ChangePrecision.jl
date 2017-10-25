@@ -1,21 +1,25 @@
 using ChangePrecision
 using Base.Test
 
+≡(x::T,y::T) where {T<:Number} = isequal(x, y)
+≡(x::T,y::T) where {T} = x == y
+≡(x, y) = false
+
 @testset "basic tests" begin
     for T in (Float16, Float32, BigFloat)
-        @test T(1)/T(3) == @changeprecision(T, 1/3)::T
-        @test T(1) == @changeprecision(T, float(1))::T
-        @test parse(T, "1.234") == @changeprecision(T, 1.234)::T
+        @test T(1)/T(3) ≡ @changeprecision(T, 1/3)
+        @test T(1) ≡ @changeprecision(T, float(1))
+        @test parse(T, "1.234") ≡ @changeprecision(T, 1.234)
         if T != BigFloat
             @test @changeprecision(T, rand()) isa T
             @test @changeprecision(T, rand(Float64)) isa Float64
         end
-        @test @changeprecision(T, ones(2,3)) isa Matrix{T}
-        @test @changeprecision(T, ones(Float64, 2,3)) isa Matrix{Float64}
-        @test @changeprecision(T, sin(1)) isa T
-        @test @changeprecision(T, sqrt(2)) isa T
-        @test isequal(@changeprecision(T, Inf)::T, Inf)
-        @test isequal(@changeprecision(T, NaN)::T, NaN)
+        @test @changeprecision(T, ones(2,3)) ≡ ones(T,2,3)
+        @test @changeprecision(T, ones(Float64, 2,3)) ≡ ones(Float64,2,3)
+        @test @changeprecision(T, sin(1)) ≡ sin(T(1))
+        @test @changeprecision(T, sqrt(2)) ≡ sqrt(T(2))
+        @test @changeprecision(T, Inf) ≡ T(Inf)
+        @test @changeprecision(T, NaN) ≡ T(NaN)
     end
 end
 
@@ -51,4 +55,23 @@ end
     @test @changeprecision(Float32, 3^2) === @changeprecision(Float32, 3^(3-1)) === 9
     @test @changeprecision(Float32, 3^(1//2)) === sqrt(Float32(3))
     @test @changeprecision(Float32, 3^(1+2im)) === Float32(3)^(1+2im)
+end
+
+@testset "arrays" begin
+    @test @changeprecision(Float32, mean([1,3])) === @changeprecision(Float32, median([1,3])) === 2.0f0
+    @test @changeprecision(Float32, norm([1,3],Inf)) === 3.0f0
+    @test @changeprecision(Float32, varm([1,3],2)) === @changeprecision(Float32, varm([1,3],2.0)) === 2.0f0
+    @test @changeprecision(Float32, varm([1,3], Float64(2))) === 2.0
+    @test @changeprecision(Float32, [2,4]/2) ≡ @changeprecision(Float32, 2\[2,4]) ≡ Float32[1,2]
+    @test @changeprecision(Float32, mean([1//1,3//1])) === 2//1
+end
+
+@testset "matrices" begin
+    @test @changeprecision(Float32, inv(eye(Rational{Int},2,2))) ≡ @changeprecision(Float32, lufact(eye(Rational{Int},2,2))[:U]) ≡ eye(Rational{Int},2,2)
+    @test @changeprecision(Float32, inv(eye(Int,2,2))) ≡ @changeprecision(Float32, lufact(eye(Int,2,2))[:U]) ≡ eye(Float32,2,2)
+    @test @changeprecision(Float32, inv(eye(Float64,2,2))) ≡ eye(Float64,2,2)
+    @test @changeprecision(Float32, eye(Int,2,2) \ (1:2)) ≡ Float32[1,2]
+    @test @changeprecision(Float32, [1,2]' / eye(Int,2,2)) ≡ Float32[1,2]'
+    @test @changeprecision(Float32, eigvals(eye(Int,2,2))) ≡ @changeprecision(Float32, eigvals(eye(Rational{Int},2,2))) ≡ eigvals(eye(Float32,2,2))
+    @test @changeprecision(Float32, norm(eye(Int,2,2))) ≡ @changeprecision(Float32, norm(eye(Rational{Int},2,2))) ≡ norm(eye(Float32,2,2))
 end
