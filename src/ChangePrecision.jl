@@ -10,21 +10,24 @@ export @changeprecision
 const randfuncs = (:rand, :randn, :randexp) # random-number generators
 const matfuncs = (:ones, :zeros, :eye) # functions to construct arrays
 #from https://docs.julialang.org/en/release-0.6/manual/mathematical-operations/, up to date as of 0.6
-const intfuncs = (:/,:\,:inv,:√,:∛,:float,:deg2rad,:rad2deg,:cospi,:sinpi,
+const intfuncs = (:/, :\, :inv, :float,
                   # powers logs and roots
-                  :sqrt,:cbrt,:hypot,:exp,:exp2,:exp10,:expm1,:log,:log2,:log10,:log1p,
+                  :√,:∛,:sqrt,:cbrt,:hypot,:exp,:exp2,:exp10,:expm1,:log,:log2,:log10,:log1p,:cis,
                   # trig
                   :sin,    :cos,    :tan,    :cot,    :sec,    :csc,
                   :sinh,   :cosh,   :tanh,   :coth,   :sech,   :csch,
                   :asin,   :acos,   :atan,   :acot,   :asec,   :acsc,
                   :asinh,  :acosh,  :atanh,  :acoth,  :asech,  :acsch,
                   :sinc,   :cosc,   :atan2,
+                  :cospi,  :sinpi,
                   # trig in degrees
+                  :deg2rad,:rad2deg,
                   :sind,   :cosd,   :tand,   :cotd,   :secd,   :cscd,
                   :asind,  :acosd,  :atand,  :acotd,  :asecd,  :acscd,
                   # special functions
                   :gamma,:lgamma,:lfact,:beta,:lbeta)
-const changefuncs = Set([randfuncs..., matfuncs..., intfuncs...])
+const complexfuncs = (:abs, :angle) # functions that give Float64 for Complex{Int}
+const changefuncs = Set([randfuncs..., matfuncs..., intfuncs..., complexfuncs...])
 
 changeprecision(T, x) = x
 changeprecision(T::Type, x::Float64) = parse(T, string(x)) # change float literals
@@ -107,13 +110,31 @@ end
 
 # integer-like types that get converted to Float64 by various functions
 const HWInt = Union{Bool,Int8,Int16,Int32,Int64,Int128,UInt8,UInt16,UInt32,UInt64,UInt128}
-const IntLike = Union{<:HWInt, Complex{<:HWInt}}
+const RatLike = Union{Rational{<:HWInt}, Complex{<:Rational{<:HWInt}}}
+const IntLike = Union{HWInt, Complex{<:HWInt}}
+const Promotable = Union{IntLike, RatLike}
 
 # we want to change expressions like 1/2 to produce the new floating-point type
 for f in intfuncs
     @eval begin
-        $f(T, n::IntLike) = Base.$f(tofloat(T, n))
-        $f(T, m::IntLike, n::IntLike) = Base.$f(tofloat(T, m), tofloat(T, n))
+        $f(T, n::Promotable) = Base.$f(tofloat(T, n))
+        $f(T, m::Promotable, n::Promotable) = Base.$f(tofloat(T, m), tofloat(T, n))
+        $f(T, args...) = Base.$f(args...)
+    end
+end
+
+# exception to intfuncs above: division on rationals produces an exact rational
+inv(T, x::RatLike) = Base.inv(x)
+/(T, y::IntLike, x::RatLike) = Base.:/(y, x)
+\(T, x::RatLike, y::IntLike) = Base.:\(x, y)
+/(T, y::RatLike, x::IntLike) = Base.:/(y, x)
+\(T, x::IntLike, y::RatLike) = Base.:\(x, y)
+/(T, y::RatLike, x::RatLike) = Base.:/(y, x)
+\(T, x::RatLike, y::RatLike) = Base.:\(x, y)
+
+for f in complexfuncs
+    @eval begin
+        $f(T, z::Union{Complex{<:HWInt},Complex{<:Rational{<:HWInt}}}) = Base.$f(tofloat(T, z))
         $f(T, args...) = Base.$f(args...)
     end
 end

@@ -18,3 +18,17 @@ using Base.Test
         @test isequal(@changeprecision(T, NaN)::T, NaN)
     end
 end
+
+@testset "rationals" begin
+    @test @changeprecision(Float32, sqrt(2//3)) === sqrt(Float32(2//3))
+    @test @changeprecision(Float32, inv(2//3)) === 3//2
+    @test @changeprecision(Float32, (2//3) / 2) === 1//3
+    @test @changeprecision(Float32, 2 / (4//3)) === 3//2
+    @test @changeprecision(Float32, (2//3) / (4//3)) === 1//2
+    @test @changeprecision(Float32, (2//3) \ (4//3)) === 2//1
+end
+
+@testset "complex" begin
+    @test @changeprecision(Float32, abs(1+1im)) === sqrt(Float32(2))
+    @test @changeprecision(Float32, angle(1+0im)) === Float32(0)
+end
