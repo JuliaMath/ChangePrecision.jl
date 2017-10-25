@@ -9,7 +9,21 @@ export @changeprecision
 
 const randfuncs = (:rand, :randn, :randexp) # random-number generators
 const matfuncs = (:ones, :zeros, :eye) # functions to construct arrays
-const intfuncs = (:/, :inv, :sqrt, :√, :float) # functions that turn integers into floats
+#from https://docs.julialang.org/en/release-0.6/manual/mathematical-operations/, up to date as of 0.6
+const intfuncs = (:/,:\,:inv,:√,:∛,:float,:deg2rad,:rad2deg,:cospi,:sinpi,
+                  # powers logs and roots
+                  :sqrt,:cbrt,:hypot,:exp,:exp2,:exp10,:expm1,:log,:log2,:log10,:log1p,
+                  # trig
+                  :sin,    :cos,    :tan,    :cot,    :sec,    :csc,
+                  :sinh,   :cosh,   :tanh,   :coth,   :sech,   :csch,
+                  :asin,   :acos,   :atan,   :acot,   :asec,   :acsc,
+                  :asinh,  :acosh,  :atanh,  :acoth,  :asech,  :acsch,
+                  :sinc,   :cosc,   :atan2,
+                  # trig in degrees
+                  :sind,   :cosd,   :tand,   :cotd,   :secd,   :cscd,
+                  :asind,  :acosd,  :atand,  :acotd,  :asecd,  :acscd,
+                  # special functions
+                  :gamma,:lgamma,:lfact,:beta,:lbeta)
 const changefuncs = Set([randfuncs..., matfuncs..., intfuncs...])
 
 changeprecision(T, x) = x
