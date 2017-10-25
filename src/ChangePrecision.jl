@@ -9,7 +9,8 @@ export @changeprecision
 
 const randfuncs = (:rand, :randn, :randexp) # random-number generators
 const matfuncs = (:ones, :zeros, :eye) # functions to construct arrays
-const intfuncs = (:/, :inv, :sqrt, :√, :float) # functions that turn integers into floats
+const intfuncs = (:/, :inv, :sqrt, :√, :float, :sin, :cos, :tan, :asin, :acos, :acosh, :atanh, :log, :log2, :log10,
+                  :lgamma, :log1p, :cbrt, :sinh, :cosh, :tanh, :atan, :asinh, :exp2, :expm1) # functions that turn integers into floats
 const changefuncs = Set([randfuncs..., matfuncs..., intfuncs...])
 
 changeprecision(T, x) = x
