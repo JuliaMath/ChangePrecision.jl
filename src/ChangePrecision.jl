@@ -152,6 +152,8 @@ for f in binaryfuncs
 end
 -(T::Type, x::Irrational) = Base.:-(tofloat(T, x))
 
+^(T, x::Promotable, y::Union{RatLike,Complex{<:HWInt}}) = Base.:^(tofloat(T, x), y)
+
 # e^x is handled specially
 const esym = VERSION < v"0.7.0-DEV.1592" ? :e : :ℯ # changed in JuliaLang/julia#23427
 ^(T, x::Irrational{esym}, y::Promotable) = Base.exp(tofloat(T, y))

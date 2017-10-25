@@ -46,3 +46,9 @@ const euler = VERSION < v"0.7.0-DEV.1592" ? e : ℯ # changed in JuliaLang/julia
     @test @changeprecision(Float32, pi^2) === Float32(pi)^2
     @test @changeprecision(Float32, euler^2) === @changeprecision(Float32, euler^(3-1)) === exp(Float32(2))
 end
+
+@testset "powers" begin
+    @test @changeprecision(Float32, 3^2) === @changeprecision(Float32, 3^(3-1)) === 9
+    @test @changeprecision(Float32, 3^(1//2)) === sqrt(Float32(3))
+    @test @changeprecision(Float32, 3^(1+2im)) === Float32(3)^(1+2im)
+end
