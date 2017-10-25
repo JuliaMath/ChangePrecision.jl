@@ -27,8 +27,8 @@ const intfuncs = (:/, :\, :inv, :float,
                   # special functions
                   :gamma,:lgamma,:lfact,:beta,:lbeta)
 const complexfuncs = (:abs, :angle) # functions that give Float64 for Complex{Int}
-const changefuncs = Set([randfuncs..., matfuncs..., intfuncs..., complexfuncs...])
-
+const binaryfuncs = (:*, :+, :-, :^) # binary functions on irrationals that make Float64
+const changefuncs = Set([randfuncs..., matfuncs..., intfuncs..., complexfuncs..., binaryfuncs...])
 changeprecision(T, x) = x
 changeprecision(T::Type, x::Float64) = parse(T, string(x)) # change float literals
 function changeprecision(T, x::Symbol)
@@ -52,7 +52,10 @@ function changeprecision(T, x::Float64)
     end
 end
 function changeprecision(T, ex::Expr)
-    if Meta.isexpr(ex, :call) && ex.args[1] in changefuncs
+    if Meta.isexpr(ex, :call, 3) && ex.args[1] == :^ && ex.args[3] isa Int
+        # mimic Julia 0.6/0.7's lowering to literal_pow
+        return Expr(:call, ChangePrecision.literal_pow, T, :^, ex.args[2], Val{ex.args[3]}())
+    elseif Meta.isexpr(ex, :call) && ex.args[1] in changefuncs
         return Expr(:call, eval(ChangePrecision, ex.args[1]), T, changeprecision.(T, ex.args[2:end])...)
     elseif Meta.isexpr(ex, :., 2) && ex.args[1] in changefuncs && Meta.isexpr(ex.args[2], :tuple)
         return Expr(:., eval(ChangePrecision, ex.args[1]), Expr(:tuple, T, changeprecision.(T, ex.args[2].args)...))
@@ -112,7 +115,7 @@ end
 const HWInt = Union{Bool,Int8,Int16,Int32,Int64,Int128,UInt8,UInt16,UInt32,UInt64,UInt128}
 const RatLike = Union{Rational{<:HWInt}, Complex{<:Rational{<:HWInt}}}
 const IntLike = Union{HWInt, Complex{<:HWInt}}
-const Promotable = Union{IntLike, RatLike}
+const Promotable = Union{IntLike, RatLike, Irrational}
 
 # we want to change expressions like 1/2 to produce the new floating-point type
 for f in intfuncs
@@ -137,6 +140,30 @@ for f in complexfuncs
         $f(T, z::Union{Complex{<:HWInt},Complex{<:Rational{<:HWInt}}}) = Base.$f(tofloat(T, z))
         $f(T, args...) = Base.$f(args...)
     end
+end
+
+for f in binaryfuncs
+    @eval begin
+        $f(T, x::Irrational, y::Promotable) = Base.$f(tofloat(T, x), tofloat(T, y))
+        $f(T, x::Promotable, y::Irrational) = Base.$f(tofloat(T, x), tofloat(T, y))
+        $f(T, x::Irrational, y::Irrational) = Base.$f(tofloat(T, x), tofloat(T, y))
+        $f(T, args...) = Base.$f(args...)
+    end
+end
+-(T::Type, x::Irrational) = Base.:-(tofloat(T, x))
+
+# e^x is handled specially
+const esym = VERSION < v"0.7.0-DEV.1592" ? :e : :ℯ # changed in JuliaLang/julia#23427
+^(T, x::Irrational{esym}, y::Promotable) = Base.exp(tofloat(T, y))
+literal_pow(T, op, x::Irrational{esym}, ::Val{n}) where {n} = Base.exp(tofloat(T, n))
+
+# literal integer powers are specially handled in Julia
+if VERSION < v"0.7.0-DEV.843" # JuliaLang/julia#22475
+    literal_pow(T, op, x::Irrational, ::Val{n}) where {n} = Base.literal_pow(op, tofloat(T, x), Val{n})
+    @inline literal_pow(T, op, x, ::Val{n}) where {n} = Base.literal_pow(op, x, Val{n})
+else
+    literal_pow(T, op, x::Irrational, p) = Base.literal_pow(op, tofloat(T, x), p)
+    @inline literal_pow(T, op, x, p) = Base.literal_pow(op, x, p)
 end
 
 @inline tofloat(T, x) = T(x)

@@ -32,3 +32,17 @@ end
     @test @changeprecision(Float32, abs(1+1im)) === sqrt(Float32(2))
     @test @changeprecision(Float32, angle(1+0im)) === Float32(0)
 end
+
+const euler = VERSION < v"0.7.0-DEV.1592" ? e : ℯ # changed in JuliaLang/julia#23427
+
+@testset "irrational" begin
+    @test @changeprecision(Float32, sqrt(pi)) === sqrt(Float32(pi))
+    @test @changeprecision(Float32, pi/3) === Float32(pi)/3
+    @test @changeprecision(Float32, 2pi) === Float32(pi)*2
+    @test @changeprecision(Float32, pi+2) === Float32(pi)+2
+    @test @changeprecision(Float32, -pi) === -Float32(pi)
+    @test @changeprecision(Float32, 2Float64(pi)) === Float64(pi)*2
+    @test @changeprecision(Float32, pi^2) === Float32(pi)^2
+    @test @changeprecision(Float32, pi^2) === Float32(pi)^2
+    @test @changeprecision(Float32, euler^2) === @changeprecision(Float32, euler^(3-1)) === exp(Float32(2))
+end
