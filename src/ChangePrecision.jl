@@ -10,7 +10,7 @@ export @changeprecision
 const randfuncs = (:rand, :randn, :randexp) # random-number generators
 const matfuncs = (:ones, :zeros, :eye) # functions to construct arrays
 #from https://docs.julialang.org/en/release-0.6/manual/mathematical-operations/, up to date as of 0.6
-const intfuncs = (:/,:inv,:√,:float,:deg2rad,:rad2deg,:cospi,:sinpi,
+const intfuncs = (:/,:inv,:√,:∛,:float,:deg2rad,:rad2deg,:cospi,:sinpi,
                   # powers logs and roots
                   :sqrt,:cbrt,:hypot,:exp,:expm1,:log,:log2,:log10,:log1p,
                   # trig
