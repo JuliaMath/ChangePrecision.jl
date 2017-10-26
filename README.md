@@ -14,7 +14,7 @@ end
 ```
 
 In particular, floating-point literals like `7.3` are reinterpreted as the requested type `Float32`, operations like `/` that convert integer arguments to `Float64` instead convert to `Float32`, and random-number or matrix constructors like `rand` and `ones` default to `Float32` instead of `Float64`.
-Several other cases are handled as well: arithmetic with irrational constants like `pi`, linear-algebra functions (like `inv`) in integer matrices, etcetera.
+Several other cases are handled as well: arithmetic with irrational constants like `pi`, linear-algebra functions (like `inv`) on integer matrices, etcetera.
 
 The `@changeprecision` transformations are applied recursively to any `include(filename)` call, so that you can simply do `@changeprecision Float32 include("mycode.jl")` to run a whole script `mycode.jl` in `Float32` default precision.
 
