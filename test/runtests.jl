@@ -95,3 +95,10 @@ end
         end
     end
 end
+
+@testset "ranges" begin
+    @test eltype(@changeprecision(Float32, linspace(0,1))) == Float32
+    @test eltype(@changeprecision(Float32, linspace(0//1,1//1))) == Rational{Int}
+    @test eltype(@changeprecision(Float32, logspace(1,2))) == Float32
+    @test eltype(@changeprecision(Float32, logspace(1,Float64(2)))) == Float64
+end

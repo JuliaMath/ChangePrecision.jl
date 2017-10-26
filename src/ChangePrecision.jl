@@ -15,8 +15,16 @@ using Compat
 
 export @changeprecision
 
+############################################################################
+# The @changeprecision(T, expr) macro, below, takes calls to
+# functions f that default to producing Float64 (e.g. from integer args)
+# and converts them to calls to ChangePrecision.f(T, args...).  Then
+# we implement our f(T, args...) to default to T instead.  The following
+# are a list of function calls to transform in this way.
+
 const randfuncs = (:rand, :randn, :randexp) # random-number generators
 const matfuncs = (:ones, :zeros, :eye) # functions to construct arrays
+const rangefuncs = (:linspace, :logspace) # range-like constructors
 const complexfuncs = (:abs, :angle) # functions that give Float64 for Complex{Int}
 const binaryfuncs = (:*, :+, :-, :^) # binary functions on irrationals that make Float64
 
@@ -54,7 +62,11 @@ const arrayfuncs = (:mean, :std, :stdm, :var, :varm, :median, :cov, :cor, :xcorr
                     :expm, :sqrtm, :logm, :lyap, :sylvester, :eigs)
 
 # functions to change to ChangePrecision.func(T, ...) calls:
-const changefuncs = Set([randfuncs..., matfuncs..., intfuncs..., complexfuncs..., binaryfuncs..., arrayfuncs..., :include])
+const changefuncs = Set([randfuncs..., matfuncs..., rangefuncs...,
+                         intfuncs..., complexfuncs..., arrayfuncs...,
+                         binaryfuncs..., :include])
+
+############################################################################
 
 changeprecision(T, x) = x
 changeprecision(T::Type, x::Float64) = parse(T, string(x)) # change float literals
@@ -123,6 +135,24 @@ macro changeprecision(T, expr)
     esc(changeprecision(T, expr))
 end
 
+############################################################################
+
+# integer-like types that get converted to Float64 by various functions
+const HWInt = Union{Bool,Int8,Int16,Int32,Int64,Int128,UInt8,UInt16,UInt32,UInt64,UInt128}
+const RatLike = Union{Rational{<:HWInt}, Complex{<:Rational{<:HWInt}}}
+const IntLike = Union{HWInt, Complex{<:HWInt}}
+const IntRatLike = Union{IntLike,RatLike}
+const Promotable = Union{IntLike, RatLike, Irrational}
+const PromotableNoRat = Union{IntLike, Irrational}
+
+@inline tofloat(T, x) = T(x)
+@inline tofloat(::Type{T}, x::Complex) where {T<:Real} = Complex{T}(x)
+@inline tofloat(T, x::AbstractArray) = copy!(similar(x, T), x)
+@inline tofloat(::Type{T}, x::AbstractArray{<:Complex}) where {T<:Real} = copy!(similar(x, Complex{T}), x)
+
+###########################################################################
+# ChangePrecision.f(T, args...) versions of Base.f(args...) functions.
+
 # define our own versions of rand etc. that override the default type,
 # which which still respect a type argument if it is explicitly provided
 for f in randfuncs
@@ -145,14 +175,6 @@ for f in matfuncs
         $f(T, args...) = Base.$f(args...)
     end
 end
-
-# integer-like types that get converted to Float64 by various functions
-const HWInt = Union{Bool,Int8,Int16,Int32,Int64,Int128,UInt8,UInt16,UInt32,UInt64,UInt128}
-const RatLike = Union{Rational{<:HWInt}, Complex{<:Rational{<:HWInt}}}
-const IntLike = Union{HWInt, Complex{<:HWInt}}
-const IntRatLike = Union{IntLike,RatLike}
-const Promotable = Union{IntLike, RatLike, Irrational}
-const PromotableNoRat = Union{IntLike, Irrational}
 
 # we want to change expressions like 1/2 to produce the new floating-point type
 for f in intfuncs
@@ -252,9 +274,13 @@ for f in (:mean, :median, :var, :std, :cor, :cov, :ldltfact, :lufact)
     end
 end
 
-@inline tofloat(T, x) = T(x)
-@inline tofloat(::Type{T}, x::Complex) where {T<:Real} = Complex{T}(x)
-@inline tofloat(T, x::AbstractArray) = copy!(similar(x, T), x)
-@inline tofloat(::Type{T}, x::AbstractArray{<:Complex}) where {T<:Real} = copy!(similar(x, Complex{T}), x)
+# linspace and logspace
+linspace(T, a::PromotableNoRat, b::PromotableNoRat, args...) = Base.linspace(tofloat(T, a), tofloat(T, b), args...)
+logspace(T, a::Promotable, b::Promotable, args...) = Base.logspace(tofloat(T, a), tofloat(T, b), args...)
+for f in rangefuncs
+    @eval $f(T, args...) = Base.$f(args...)
+end
+
+############################################################################
 
 end # module
