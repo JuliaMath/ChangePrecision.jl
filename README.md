@@ -20,4 +20,4 @@ The `@changeprecision` transformations are applied recursively to any `include(f
 
 Code that explicitly specifies a type, e.g. `rand(Float64)`, is unaffected by `@changeprecision`.
 
-Note that only expressions that *explicitly appear* in the `expression` are converted by `@changeprecision`.  Code *hidden inside* functions that are called is not affected.
+Note that only expressions that *explicitly appear* in the `expression` (or code inserted by `include`) are converted by `@changeprecision`.  Code *hidden inside* external functions that are called is not affected.
