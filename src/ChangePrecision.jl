@@ -1,9 +1,17 @@
+#__precompile__()
+
 """
 The `ChangePrecision` module exports a macro `@changeprecision T expression`
 that changes the "default" floating-point precision in a given `expression`
 to a new floating-point type `T`.
 """
 module ChangePrecision
+
+## Note: code in this module must be very careful with math functions,
+#        because we've defined module-specific versions of very basic
+#        functions like + and *.   Call Base.:+ etcetera if needed.
+
+using Compat
 
 export @changeprecision
 
@@ -46,7 +54,7 @@ const arrayfuncs = (:mean, :std, :stdm, :var, :varm, :median, :cov, :cor, :xcorr
                     :expm, :sqrtm, :logm, :lyap, :sylvester, :eigs)
 
 # functions to change to ChangePrecision.func(T, ...) calls:
-const changefuncs = Set([randfuncs..., matfuncs..., intfuncs..., complexfuncs..., binaryfuncs..., arrayfuncs...])
+const changefuncs = Set([randfuncs..., matfuncs..., intfuncs..., complexfuncs..., binaryfuncs..., arrayfuncs..., :include])
 
 changeprecision(T, x) = x
 changeprecision(T::Type, x::Float64) = parse(T, string(x)) # change float literals
@@ -81,6 +89,16 @@ function changeprecision(T, ex::Expr)
     else
         return Expr(ex.head, changeprecision.(T, ex.args)...)
     end
+end
+
+# calls to include(f) are changed to include(T, f) so that
+# @changeprecision can apply recursively to included files.
+function include(T, filename::AbstractString)
+    # use the undocumented parse_input_line function so that we preserve
+    # the filename and line-number information.
+    s = string("begin; ", read(filename, String), "\nend\n")
+    expr = Base.parse_input_line(s, filename=filename)
+    eval(current_module(), changeprecision(T, expr))
 end
 
 """

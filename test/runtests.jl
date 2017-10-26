@@ -75,3 +75,13 @@ end
     @test @changeprecision(Float32, eigvals(eye(Int,2,2))) ≡ @changeprecision(Float32, eigvals(eye(Rational{Int},2,2))) ≡ eigvals(eye(Float32,2,2))
     @test @changeprecision(Float32, norm(eye(Int,2,2))) ≡ @changeprecision(Float32, norm(eye(Rational{Int},2,2))) ≡ norm(eye(Float32,2,2))
 end
+
+module Foo
+using ChangePrecision
+@changeprecision Float32 include("foo.jl")
+end
+import .Foo
+@testset "include" begin
+    @test Foo.foo(1) === 1.0f0 / 3
+    @test Foo.foo(1.0) === 1.0 / 3
+end
