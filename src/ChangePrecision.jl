@@ -1,4 +1,4 @@
-#__precompile__()
+__precompile__()
 
 """
 The `ChangePrecision` module exports a macro `@changeprecision T expression`
