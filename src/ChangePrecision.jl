@@ -72,8 +72,6 @@ function changeprecision(T, x::Float64)
         return Float32(x)
     elseif T === :Float64
         return x
-    elseif T === :BigFloat
-        return parse(BigFloat, string(x))
     else
         return :(parse($T, $(string(x))))
     end
@@ -152,6 +150,7 @@ end
 const HWInt = Union{Bool,Int8,Int16,Int32,Int64,Int128,UInt8,UInt16,UInt32,UInt64,UInt128}
 const RatLike = Union{Rational{<:HWInt}, Complex{<:Rational{<:HWInt}}}
 const IntLike = Union{HWInt, Complex{<:HWInt}}
+const IntRatLike = Union{IntLike,RatLike}
 const Promotable = Union{IntLike, RatLike, Irrational}
 const PromotableNoRat = Union{IntLike, Irrational}
 
@@ -189,6 +188,14 @@ for f in binaryfuncs
     end
 end
 -(T::Type, x::Irrational) = Base.:-(tofloat(T, x))
+for f in (:+, :*) # these functions can accept 3+ arguments
+    # FIXME: these methods may be slow compared to the built-in + or *
+    #        because they do less inlining?
+    @eval begin
+        @inline $f(T, x::Promotable, y, z, args...) = $f(T, x, $f(T, y, z, args...))
+        @inline $f(T, x::IntRatLike, y::IntRatLike, z::IntRatLike, args::IntRatLike...) = Base.$f(x, y, z, args...)
+    end
+end
 
 ^(T, x::Union{AbstractMatrix{<:Promotable},Promotable}, y::Union{RatLike,Complex{<:HWInt}}) = Base.:^(tofloat(T, x), y)
 

@@ -46,6 +46,7 @@ const euler = VERSION < v"0.7.0-DEV.1592" ? e : ℯ # changed in JuliaLang/julia
     @test @changeprecision(Float32, pi+2) === Float32(pi)+2
     @test @changeprecision(Float32, -pi) === -Float32(pi)
     @test @changeprecision(Float32, 2Float64(pi)) === Float64(pi)*2
+    @test @changeprecision(Float32, 2*2*2*2*2*Float32(pi)) === @changeprecision(Float32,Float32(pi)*2*2*2*2*2)=== 32*Float32(pi)
     @test @changeprecision(Float32, pi^2) === Float32(pi)^2
     @test @changeprecision(Float32, pi^2) === Float32(pi)^2
     @test @changeprecision(Float32, euler^2) === @changeprecision(Float32, euler^(3-1)) === exp(Float32(2))
@@ -84,4 +85,13 @@ import .Foo
 @testset "include" begin
     @test Foo.foo(1) === 1.0f0 / 3
     @test Foo.foo(1.0) === 1.0 / 3
+end
+
+@testset "bigfloat" begin
+    @changeprecision BigFloat foobar(x) = pi * x * 0.1
+    for p in (50, 100, 1000)
+        setprecision(p) do
+            @test foobar(3) ≡ big(pi) * 3 * parse(BigFloat, "0.1")
+        end
+    end
 end
