@@ -169,7 +169,7 @@ end
 # similarly for array constructors like ones
 for f in matfuncs
     @eval begin
-        $f(T) = Base.$f(T, dims...)
+        $f(T) = Base.$f(T)
         $f(T, dims::Integer...) = Base.$f(T, dims...)
         $f(T, dims::Tuple{<:Integer}) = Base.$f(T, dims)
         $f(T, args...) = Base.$f(args...)

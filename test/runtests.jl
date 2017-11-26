@@ -15,6 +15,7 @@ using Base.Test
             @test @changeprecision(T, rand(Float64)) isa Float64
         end
         @test @changeprecision(T, ones(2,3)) ≡ ones(T,2,3)
+        @test @changeprecision(T, ones()) ≡ ones(T)
         @test @changeprecision(T, ones(Float64, 2,3)) ≡ ones(Float64,2,3)
         @test @changeprecision(T, sin(1)) ≡ sin(T(1))
         @test @changeprecision(T, sqrt(2)) ≡ sqrt(T(2))
