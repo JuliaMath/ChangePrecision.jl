@@ -91,7 +91,7 @@ end
 function changeprecision(T, ex::Expr)
     if Meta.isexpr(ex, :call, 3) && ex.args[1] == :^ && ex.args[3] isa Int
         # mimic Julia 0.6/0.7's lowering to literal_pow
-        return Expr(:call, ChangePrecision.literal_pow, T, :^, ex.args[2], Val{ex.args[3]}())
+        return Expr(:call, ChangePrecision.literal_pow, T, :^, changeprecision(T, ex.args[2]), Val{ex.args[3]}())
     elseif Meta.isexpr(ex, :call) && ex.args[1] in changefuncs
         return Expr(:call, eval(ChangePrecision, ex.args[1]), T, changeprecision.(T, ex.args[2:end])...)
     elseif Meta.isexpr(ex, :., 2) && ex.args[1] in changefuncs && Meta.isexpr(ex.args[2], :tuple)

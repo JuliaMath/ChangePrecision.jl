@@ -57,6 +57,7 @@ end
     @test @changeprecision(Float32, 3^2) === @changeprecision(Float32, 3^(3-1)) === 9
     @test @changeprecision(Float32, 3^(1//2)) === sqrt(Float32(3))
     @test @changeprecision(Float32, 3^(1+2im)) === Float32(3)^(1+2im)
+    @test @changeprecision(Float32, 0.5^2) === 0.25f0
 end
 
 @testset "arrays" begin
