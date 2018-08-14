@@ -12,6 +12,7 @@ module ChangePrecision
 #        functions like + and *.   Call Base.:+ etcetera if needed.
 
 using Compat
+using Compat.Random: AbstractRNG
 
 export @changeprecision
 
@@ -23,8 +24,7 @@ export @changeprecision
 # are a list of function calls to transform in this way.
 
 const randfuncs = (:rand, :randn, :randexp) # random-number generators
-const matfuncs = (:ones, :zeros, :eye) # functions to construct arrays
-const rangefuncs = (:linspace, :logspace) # range-like constructors
+const matfuncs = (:ones, :zeros) # functions to construct arrays
 const complexfuncs = (:abs, :angle) # functions that give Float64 for Complex{Int}
 const binaryfuncs = (:*, :+, :-, :^) # binary functions on irrationals that make Float64
 
@@ -44,26 +44,22 @@ const intfuncs = (:/, :\, :inv, :float,
                   :deg2rad,:rad2deg,
                   :sind,   :cosd,   :tand,   :cotd,   :secd,   :cscd,
                   :asind,  :acosd,  :atand,  :acotd,  :asecd,  :acscd,
-                  # special functions
-                  :gamma,:lgamma,:lfact,:beta,:lbeta)
+                  )
 
 
 # functions that convert integer arrays to floating-point results
-const arrayfuncs = (:mean, :std, :stdm, :var, :varm, :median, :cov, :cor, :xcorr,
-                    :norm, :vecnorm, :normalize,
-                    :factorize, :cholfact, :bkfact, :ldltfact, :lufact, :qrfact,
-                    :lu, :chol, :qr, :lqfact, :lq,
-                    :eig, :eigvals, :eigfact, :eigmax, :eigmin, :eigvecs,
-                    :hessfact, :schurfact, :schur, :ordschur,
-                    :svdfact, :svd, :svdvals,
-                    :cond, :condskeel,
-                    :det, :logdet, :logabsdet,
-                    :pinv, :nullspace, :linreg,
-                    :expm, :sqrtm, :logm, :lyap, :sylvester, :eigs)
+const statfuncs = (:mean, :std, :stdm, :var, :varm, :median, :cov, :cor)
+const linalgfuncs = (:opnorm, :norm, :normalize,
+                     :factorize, :cholesky, :bunchkaufman, :ldlt, :lu, :qr, :lq,
+                     :eigen, :eigvals, :eigfact, :eigmax, :eigmin, :eigvecs,
+                     :hessenberg, :schur, :svd, :svdvals,
+                     :cond, :condskeel, :det, :logdet, :logabsdet,
+                     :pinv, :nullspace, :lyap, :sylvester)
 
 # functions to change to ChangePrecision.func(T, ...) calls:
-const changefuncs = Set([randfuncs..., matfuncs..., rangefuncs...,
-                         intfuncs..., complexfuncs..., arrayfuncs...,
+const changefuncs = Set([randfuncs..., matfuncs...,
+                         intfuncs..., complexfuncs...,
+                         statfuncs..., linalgfuncs...,
                          binaryfuncs..., :include])
 
 ############################################################################
@@ -92,23 +88,26 @@ function changeprecision(T, ex::Expr)
     if Meta.isexpr(ex, :call, 3) && ex.args[1] == :^ && ex.args[3] isa Int
         # mimic Julia 0.6/0.7's lowering to literal_pow
         return Expr(:call, ChangePrecision.literal_pow, T, :^, changeprecision(T, ex.args[2]), Val{ex.args[3]}())
+    elseif Meta.isexpr(ex, :call, 2) && ex.args[1] == :include
+        return :($include($T, @__MODULE__, $(ex.args[2])))
     elseif Meta.isexpr(ex, :call) && ex.args[1] in changefuncs
-        return Expr(:call, eval(ChangePrecision, ex.args[1]), T, changeprecision.(T, ex.args[2:end])...)
+        return Expr(:call, Core.eval(ChangePrecision, ex.args[1]), T, changeprecision.(T, ex.args[2:end])...)
     elseif Meta.isexpr(ex, :., 2) && ex.args[1] in changefuncs && Meta.isexpr(ex.args[2], :tuple)
-        return Expr(:., eval(ChangePrecision, ex.args[1]), Expr(:tuple, T, changeprecision.(T, ex.args[2].args)...))
+        return Expr(:., Core.eval(ChangePrecision, ex.args[1]), Expr(:tuple, T, changeprecision.(T, ex.args[2].args)...))
+    elseif Meta.isexpr(ex, :call, 3) && ex.args[1] == :^ && ex.args[3] isa Int
     else
         return Expr(ex.head, changeprecision.(T, ex.args)...)
     end
 end
 
-# calls to include(f) are changed to include(T, f) so that
+# calls to include(f) are changed to include(T, mod, f) so that
 # @changeprecision can apply recursively to included files.
-function include(T, filename::AbstractString)
+function include(T, mod, filename::AbstractString)
     # use the undocumented parse_input_line function so that we preserve
     # the filename and line-number information.
     s = string("begin; ", read(filename, String), "\nend\n")
     expr = Base.parse_input_line(s, filename=filename)
-    eval(current_module(), changeprecision(T, expr))
+    Core.eval(mod, changeprecision(T, expr))
 end
 
 """
@@ -147,8 +146,8 @@ const PromotableNoRat = Union{IntLike, Irrational}
 
 @inline tofloat(T, x) = T(x)
 @inline tofloat(::Type{T}, x::Complex) where {T<:Real} = Complex{T}(x)
-@inline tofloat(T, x::AbstractArray) = copy!(similar(x, T), x)
-@inline tofloat(::Type{T}, x::AbstractArray{<:Complex}) where {T<:Real} = copy!(similar(x, Complex{T}), x)
+@inline tofloat(T, x::AbstractArray) = copyto!(similar(x, T), x)
+@inline tofloat(::Type{T}, x::AbstractArray{<:Complex}) where {T<:Real} = copyto!(similar(x, Complex{T}), x)
 
 ###########################################################################
 # ChangePrecision.f(T, args...) versions of Base.f(args...) functions.
@@ -157,12 +156,12 @@ const PromotableNoRat = Union{IntLike, Irrational}
 # which which still respect a type argument if it is explicitly provided
 for f in randfuncs
     @eval begin
-        $f(T) = Base.$f(T)
-        $f(T, dims::Integer...) = Base.$f(T, dims...)
-        $f(T, dims::Tuple{<:Integer}) = Base.$f(T, dims)
-        $f(T, rng::AbstractRNG, dims::Integer...) = Base.$f(rng, T, dims...)
-        $f(T, rng::AbstractRNG, dims::Tuple{<:Integer}) = Base.$f(rng, T, dims)
-        $f(T, args...) = Base.$f(args...)
+        $f(T) = Compat.Random.$f(T)
+        $f(T, dims::Integer...) = Compat.Random.$f(T, dims...)
+        $f(T, dims::Tuple{<:Integer}) = Compat.Random.$f(T, dims)
+        $f(T, rng::AbstractRNG, dims::Integer...) = Compat.Random.$f(rng, T, dims...)
+        $f(T, rng::AbstractRNG, dims::Tuple{<:Integer}) = Compat.Random.$f(rng, T, dims)
+        $f(T, args...) = Compat.Random.$f(args...)
     end
 end
 
@@ -235,30 +234,31 @@ else
     @inline literal_pow(T, op, x, p) = Base.literal_pow(op, x, p)
 end
 
-for f in (arrayfuncs...)
+for f in (statfuncs...,linalgfuncs...)
+    m = f ∈ statfuncs ? :Statistics : :LinearAlgebra
     # for functions like factorize, if we are converting the matrix to floating-point
     # anyway then we might as well call factorize! instead to overwrite our temp array:
-    if f ∈ (:factorize, :cholfact, :bkfact, :ldltfact, :lufact, :qrfact, :lqfact, :eigfact, :svdfact, :eigvals!, :svdvals!, :median)
+    if f ∈ (:factorize, :cholesky, :bunchkaufman, :ldlt, :lu, :qr, :lq, :eigen, :svd, :eigvals!, :svdvals!, :median)
         f! = Symbol(f, :!)
         @eval begin
-            $f(T, x::AbstractArray{<:Promotable}, args...; kws...) = Base.$f!(tofloat(T, x), args...; kws...)
-            $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray{<:Promotable}, args...; kws...) = Base.$f!(tofloat(T, x), tofloat(T, y), args...; kws...)
+            $f(T, x::AbstractArray{<:Promotable}, args...; kws...) = Compat.$m.$f!(tofloat(T, x), args...; kws...)
+            $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray{<:Promotable}, args...; kws...) = Compat.$m.$f!(tofloat(T, x), tofloat(T, y), args...; kws...)
         end
     else
         @eval begin
-            $f(T, x::AbstractArray{<:Promotable}, args...; kws...) = Base.$f(tofloat(T, x), args...; kws...)
-            $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray{<:Promotable}, args...; kws...) = Base.$f(tofloat(T, x), tofloat(T, y), args...; kws...)
+            $f(T, x::AbstractArray{<:Promotable}, args...; kws...) = Compat.$m.$f(tofloat(T, x), args...; kws...)
+            $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray{<:Promotable}, args...; kws...) = Compat.$m.$f(tofloat(T, x), tofloat(T, y), args...; kws...)
         end
     end
     @eval begin
-        $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray, args...; kws...) = Base.$f(x, y, args...; kws...)
-        $f(T, args...; kws...) = Base.$f(args...; kws...)
+        $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray, args...; kws...) = Compat.$m.$f(x, y, args...; kws...)
+        $f(T, args...; kws...) = Compat.$m.$f(args...; kws...)
     end
 end
 for f in (:varm, :stdm) # look at type of second (scalar) argument
     @eval begin
-        $f(T, x::AbstractArray{<:Promotable}, m::Union{AbstractFloat,Complex{<:AbstractFloat}}, args...; kws...) = Base.$f(x, m, args...; kws...)
-        $f(T, x::AbstractArray{<:PromotableNoRat}, m::PromotableNoRat, args...; kws...) = Base.$f(tofloat(T, x), tofloat(T, m), args...; kws...)
+        $f(T, x::AbstractArray{<:Promotable}, m::Union{AbstractFloat,Complex{<:AbstractFloat}}, args...; kws...) = Compat.Statistics.$f(x, m, args...; kws...)
+        $f(T, x::AbstractArray{<:PromotableNoRat}, m::PromotableNoRat, args...; kws...) = Compat.Statistics.$f(tofloat(T, x), tofloat(T, m), args...; kws...)
     end
 end
 inv(T, x::AbstractArray{<:PromotableNoRat}) = Base.inv(tofloat(T, x))
@@ -266,19 +266,13 @@ inv(T, x::AbstractArray{<:PromotableNoRat}) = Base.inv(tofloat(T, x))
 \(T, y::Union{PromotableNoRat,AbstractArray{<:PromotableNoRat}}, x::AbstractArray{<:Promotable}) = Base.:\(tofloat(T, y), tofloat(T, x))
 
 # more array functions that are exact for rationals: don't convert
-for f in (:mean, :median, :var, :std, :cor, :cov, :ldltfact, :lufact)
+for f in (:mean, :median, :var, :std, :cor, :cov, :ldlt, :lu)
+    m = f ∈ statfuncs ? :Statistics : :LinearAlgebra
     @eval begin
-        $f(T, x::AbstractArray{<:RatLike}, y::AbstractArray{<:Promotable}, args...; kws...) = Base.$f(tofloat(T, x), tofloat(T, y), args...; kws...)
-        $f(T, x::AbstractArray{<:RatLike}, y::AbstractArray{<:RatLike}, args...; kws...) = Base.$f(x, y, args...; kws...)
-        $f(T, x::AbstractArray{<:RatLike}, args...; kws...) = Base.$f(x, args...; kws...)
+        $f(T, x::AbstractArray{<:RatLike}, y::AbstractArray{<:Promotable}, args...; kws...) = Compat.$m.$f(tofloat(T, x), tofloat(T, y), args...; kws...)
+        $f(T, x::AbstractArray{<:RatLike}, y::AbstractArray{<:RatLike}, args...; kws...) = Compat.$m.$f(x, y, args...; kws...)
+        $f(T, x::AbstractArray{<:RatLike}, args...; kws...) = Compat.$m.$f(x, args...; kws...)
     end
-end
-
-# linspace and logspace
-linspace(T, a::PromotableNoRat, b::PromotableNoRat, args...) = Base.linspace(tofloat(T, a), tofloat(T, b), args...)
-logspace(T, a::Promotable, b::Promotable, args...) = Base.logspace(tofloat(T, a), tofloat(T, b), args...)
-for f in rangefuncs
-    @eval $f(T, args...) = Base.$f(args...)
 end
 
 ############################################################################

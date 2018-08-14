@@ -1,5 +1,5 @@
-using ChangePrecision
-using Base.Test
+using ChangePrecision, Compat
+using Compat.Test, Compat.LinearAlgebra, Compat.Statistics
 
 ≡(x::T,y::T) where {T<:Number} = isequal(x, y)
 ≡(x::T,y::T) where {T} = x == y
@@ -70,13 +70,11 @@ end
 end
 
 @testset "matrices" begin
-    @test @changeprecision(Float32, inv(eye(Rational{Int},2,2))) ≡ @changeprecision(Float32, lufact(eye(Rational{Int},2,2))[:U]) ≡ eye(Rational{Int},2,2)
-    @test @changeprecision(Float32, inv(eye(Int,2,2))) ≡ @changeprecision(Float32, lufact(eye(Int,2,2))[:U]) ≡ eye(Float32,2,2)
-    @test @changeprecision(Float32, inv(eye(Float64,2,2))) ≡ eye(Float64,2,2)
-    @test @changeprecision(Float32, eye(Int,2,2) \ (1:2)) ≡ Float32[1,2]
-    @test @changeprecision(Float32, [1,2]' / eye(Int,2,2)) ≡ Float32[1,2]'
-    @test @changeprecision(Float32, eigvals(eye(Int,2,2))) ≡ @changeprecision(Float32, eigvals(eye(Rational{Int},2,2))) ≡ eigvals(eye(Float32,2,2))
-    @test @changeprecision(Float32, norm(eye(Int,2,2))) ≡ @changeprecision(Float32, norm(eye(Rational{Int},2,2))) ≡ norm(eye(Float32,2,2))
+    @test @changeprecision(Float32, inv(I+zeros(Float64,2,2))) ≡ I+zeros(Float64,2,2)
+    @test @changeprecision(Float32, (I+zeros(Int,2,2)) \ (1:2)) ≡ Float32[1,2]
+    @test @changeprecision(Float32, [1,2]' / (I+zeros(Int,2,2))) ≡ Float32[1,2]'
+    @test @changeprecision(Float32, eigvals(I+zeros(Int,2,2))) ≡ @changeprecision(Float32, eigvals(I+zeros(Rational{Int},2,2))) ≡ eigvals(I+zeros(Float32,2,2))
+    @test @changeprecision(Float32, norm(I+zeros(Int,2,2))) ≡ @changeprecision(Float32, norm(I+zeros(Rational{Int},2,2))) ≡ norm(I+zeros(Float32,2,2))
 end
 
 module Foo
@@ -96,11 +94,4 @@ end
             @test foobar(3) ≡ big(pi) * 3 * parse(BigFloat, "0.1")
         end
     end
-end
-
-@testset "ranges" begin
-    @test eltype(@changeprecision(Float32, linspace(0,1))) == Float32
-    @test eltype(@changeprecision(Float32, linspace(0//1,1//1))) == Rational{Int}
-    @test eltype(@changeprecision(Float32, logspace(1,2))) == Float32
-    @test eltype(@changeprecision(Float32, logspace(1,Float64(2)))) == Float64
 end
