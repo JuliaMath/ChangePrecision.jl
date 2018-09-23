@@ -7,12 +7,12 @@ to a new floating-point type `T`.
 """
 module ChangePrecision
 
+import Random, Statistics, LinearAlgebra
+using Random: AbstractRNG
+
 ## Note: code in this module must be very careful with math functions,
 #        because we've defined module-specific versions of very basic
 #        functions like + and *.   Call Base.:+ etcetera if needed.
-
-using Compat
-using Compat.Random: AbstractRNG
 
 export @changeprecision
 
@@ -156,12 +156,12 @@ const PromotableNoRat = Union{IntLike, Irrational}
 # which which still respect a type argument if it is explicitly provided
 for f in randfuncs
     @eval begin
-        $f(T) = Compat.Random.$f(T)
-        $f(T, dims::Integer...) = Compat.Random.$f(T, dims...)
-        $f(T, dims::Tuple{<:Integer}) = Compat.Random.$f(T, dims)
-        $f(T, rng::AbstractRNG, dims::Integer...) = Compat.Random.$f(rng, T, dims...)
-        $f(T, rng::AbstractRNG, dims::Tuple{<:Integer}) = Compat.Random.$f(rng, T, dims)
-        $f(T, args...) = Compat.Random.$f(args...)
+        $f(T) = Random.$f(T)
+        $f(T, dims::Integer...) = Random.$f(T, dims...)
+        $f(T, dims::Tuple{<:Integer}) = Random.$f(T, dims)
+        $f(T, rng::AbstractRNG, dims::Integer...) = Random.$f(rng, T, dims...)
+        $f(T, rng::AbstractRNG, dims::Tuple{<:Integer}) = Random.$f(rng, T, dims)
+        $f(T, args...) = Random.$f(args...)
     end
 end
 
@@ -241,24 +241,24 @@ for f in (statfuncs...,linalgfuncs...)
     if f ∈ (:factorize, :cholesky, :bunchkaufman, :ldlt, :lu, :qr, :lq, :eigen, :svd, :eigvals!, :svdvals!, :median)
         f! = Symbol(f, :!)
         @eval begin
-            $f(T, x::AbstractArray{<:Promotable}, args...; kws...) = Compat.$m.$f!(tofloat(T, x), args...; kws...)
-            $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray{<:Promotable}, args...; kws...) = Compat.$m.$f!(tofloat(T, x), tofloat(T, y), args...; kws...)
+            $f(T, x::AbstractArray{<:Promotable}, args...; kws...) = $m.$f!(tofloat(T, x), args...; kws...)
+            $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray{<:Promotable}, args...; kws...) = $m.$f!(tofloat(T, x), tofloat(T, y), args...; kws...)
         end
     else
         @eval begin
-            $f(T, x::AbstractArray{<:Promotable}, args...; kws...) = Compat.$m.$f(tofloat(T, x), args...; kws...)
-            $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray{<:Promotable}, args...; kws...) = Compat.$m.$f(tofloat(T, x), tofloat(T, y), args...; kws...)
+            $f(T, x::AbstractArray{<:Promotable}, args...; kws...) = $m.$f(tofloat(T, x), args...; kws...)
+            $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray{<:Promotable}, args...; kws...) = $m.$f(tofloat(T, x), tofloat(T, y), args...; kws...)
         end
     end
     @eval begin
-        $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray, args...; kws...) = Compat.$m.$f(x, y, args...; kws...)
-        $f(T, args...; kws...) = Compat.$m.$f(args...; kws...)
+        $f(T, x::AbstractArray{<:Promotable}, y::AbstractArray, args...; kws...) = $m.$f(x, y, args...; kws...)
+        $f(T, args...; kws...) = $m.$f(args...; kws...)
     end
 end
 for f in (:varm, :stdm) # look at type of second (scalar) argument
     @eval begin
-        $f(T, x::AbstractArray{<:Promotable}, m::Union{AbstractFloat,Complex{<:AbstractFloat}}, args...; kws...) = Compat.Statistics.$f(x, m, args...; kws...)
-        $f(T, x::AbstractArray{<:PromotableNoRat}, m::PromotableNoRat, args...; kws...) = Compat.Statistics.$f(tofloat(T, x), tofloat(T, m), args...; kws...)
+        $f(T, x::AbstractArray{<:Promotable}, m::Union{AbstractFloat,Complex{<:AbstractFloat}}, args...; kws...) = Statistics.$f(x, m, args...; kws...)
+        $f(T, x::AbstractArray{<:PromotableNoRat}, m::PromotableNoRat, args...; kws...) = Statistics.$f(tofloat(T, x), tofloat(T, m), args...; kws...)
     end
 end
 inv(T, x::AbstractArray{<:PromotableNoRat}) = Base.inv(tofloat(T, x))
@@ -269,9 +269,9 @@ inv(T, x::AbstractArray{<:PromotableNoRat}) = Base.inv(tofloat(T, x))
 for f in (:mean, :median, :var, :std, :cor, :cov, :ldlt, :lu)
     m = f ∈ statfuncs ? :Statistics : :LinearAlgebra
     @eval begin
-        $f(T, x::AbstractArray{<:RatLike}, y::AbstractArray{<:Promotable}, args...; kws...) = Compat.$m.$f(tofloat(T, x), tofloat(T, y), args...; kws...)
-        $f(T, x::AbstractArray{<:RatLike}, y::AbstractArray{<:RatLike}, args...; kws...) = Compat.$m.$f(x, y, args...; kws...)
-        $f(T, x::AbstractArray{<:RatLike}, args...; kws...) = Compat.$m.$f(x, args...; kws...)
+        $f(T, x::AbstractArray{<:RatLike}, y::AbstractArray{<:Promotable}, args...; kws...) = $m.$f(tofloat(T, x), tofloat(T, y), args...; kws...)
+        $f(T, x::AbstractArray{<:RatLike}, y::AbstractArray{<:RatLike}, args...; kws...) = $m.$f(x, y, args...; kws...)
+        $f(T, x::AbstractArray{<:RatLike}, args...; kws...) = $m.$f(x, args...; kws...)
     end
 end
 

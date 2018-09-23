@@ -1,5 +1,5 @@
-using ChangePrecision, Compat
-using Compat.Test, Compat.LinearAlgebra, Compat.Statistics
+using ChangePrecision
+using Test, LinearAlgebra, Statistics
 
 ≡(x::T,y::T) where {T<:Number} = isequal(x, y)
 ≡(x::T,y::T) where {T} = x == y
