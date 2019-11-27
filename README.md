@@ -21,3 +21,7 @@ The `@changeprecision` transformations are applied recursively to any `include(f
 Code that explicitly specifies a type, e.g. `rand(Float64)`, is unaffected by `@changeprecision`.
 
 Note that only expressions that *explicitly appear* in the `expression` (or code inserted by `include`) are converted by `@changeprecision`.  Code *hidden inside* external functions that are called is not affected.
+
+## This package is for quick experiments, not production code
+
+This package was designed for quick hacks, where you want to experiment with the effect of a change in precision on a bunch of code.   For production code and long-term software development in Julia, you are strongly urged to write precision-independent code — that is, your functions should determine their working precision from the precision of their *arguments*, so that by simply passing data in a different precision they compute in that precision.
