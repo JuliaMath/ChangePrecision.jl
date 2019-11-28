@@ -77,6 +77,10 @@ end
     @test @changeprecision(Float32, norm(I+zeros(Int,2,2))) ≡ @changeprecision(Float32, norm(I+zeros(Rational{Int},2,2))) ≡ norm(I+zeros(Float32,2,2))
 end
 
+@testset "Dot macro (#9)" begin
+    @test @changeprecision(Float32, @. 1 + [2.,3]) ≡Float32[3,4]
+end
+
 module Foo
 using ChangePrecision
 @changeprecision Float32 include("foo.jl")
