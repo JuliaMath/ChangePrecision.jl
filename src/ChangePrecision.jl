@@ -94,7 +94,8 @@ function changeprecision(T, ex::Expr)
         return Expr(:call, Core.eval(ChangePrecision, ex.args[1]), T, changeprecision.(T, ex.args[2:end])...)
     elseif Meta.isexpr(ex, :., 2) && ex.args[1] in changefuncs && Meta.isexpr(ex.args[2], :tuple)
         return Expr(:., Core.eval(ChangePrecision, ex.args[1]), Expr(:tuple, T, changeprecision.(T, ex.args[2].args)...))
-    elseif Meta.isexpr(ex, :call, 3) && ex.args[1] == :^ && ex.args[3] isa Int
+    elseif Meta.isexpr(ex, :macrocall) && ex.args[1] == Symbol("@__dot__")
+        return changeprecision(T, Base.Broadcast.__dot__(ex.args[end]))
     else
         return Expr(ex.head, changeprecision.(T, ex.args)...)
     end
