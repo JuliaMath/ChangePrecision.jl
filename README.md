@@ -1,7 +1,6 @@
 # ChangePrecision
 
-[![Build Status](https://travis-ci.org/stevengj/ChangePrecision.jl.svg?branch=master)](https://travis-ci.org/stevengj/ChangePrecision.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/erbe16srnav0wrfu?svg=true)](https://ci.appveyor.com/project/StevenGJohnson/changeprecision-jl)
+[![CI](https://github.com/JuliaMath/ChangePrecision.jl/workflows/CI/badge.svg)](https://github.com/JuliaMath/ChangePrecision.jl/actions?query=workflow%3ACI)
 
 This package makes it easy to change the "default" precision of a large body of Julia code, simply by prefixing it with the `@changeprecision T expression` macro, for example:
 
