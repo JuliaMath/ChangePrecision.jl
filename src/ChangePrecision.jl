@@ -1,5 +1,3 @@
-VERSION < v"0.7.0-beta2.199" && __precompile__()
-
 """
 The `ChangePrecision` module exports a macro `@changeprecision T expression`
 that changes the "default" floating-point precision in a given `expression`
@@ -222,18 +220,13 @@ end
 ^(T, x::Union{AbstractMatrix{<:Promotable},Promotable}, y::Union{RatLike,Complex{<:HWInt}}) = Base.:^(tofloat(T, x), y)
 
 # e^x is handled specially
-const esym = VERSION < v"0.7.0-DEV.1592" ? :e : :ℯ # changed in JuliaLang/julia#23427
+const esym = :ℯ # changed in JuliaLang/julia#23427
 ^(T, x::Irrational{esym}, y::Promotable) = Base.exp(tofloat(T, y))
 literal_pow(T, op, x::Irrational{esym}, ::Val{n}) where {n} = Base.exp(tofloat(T, n))
 
 # literal integer powers are specially handled in Julia
-if VERSION < v"0.7.0-DEV.843" # JuliaLang/julia#22475
-    literal_pow(T, op, x::Irrational, ::Val{n}) where {n} = Base.literal_pow(op, tofloat(T, x), Val{n})
-    @inline literal_pow(T, op, x, ::Val{n}) where {n} = Base.literal_pow(op, x, Val{n})
-else
-    literal_pow(T, op, x::Irrational, p) = Base.literal_pow(op, tofloat(T, x), p)
-    @inline literal_pow(T, op, x, p) = Base.literal_pow(op, x, p)
-end
+literal_pow(T, op, x::Irrational, p) = Base.literal_pow(op, tofloat(T, x), p)
+@inline literal_pow(T, op, x, p) = Base.literal_pow(op, x, p)
 
 for f in (statfuncs...,linalgfuncs...)
     m = f ∈ statfuncs ? :Statistics : :LinearAlgebra

@@ -38,7 +38,7 @@ end
     @test @changeprecision(Float32, angle(1+0im)) === Float32(0)
 end
 
-const euler = VERSION < v"0.7.0-DEV.1592" ? e : ℯ # changed in JuliaLang/julia#23427
+const euler = ℯ # changed in JuliaLang/julia#23427
 
 @testset "irrational" begin
     @test @changeprecision(Float32, sqrt(pi)) === sqrt(Float32(pi))
