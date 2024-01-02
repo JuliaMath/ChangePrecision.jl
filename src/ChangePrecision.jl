@@ -220,9 +220,8 @@ end
 ^(T, x::Union{AbstractMatrix{<:Promotable},Promotable}, y::Union{RatLike,Complex{<:HWInt}}) = Base.:^(tofloat(T, x), y)
 
 # e^x is handled specially
-const esym = :ℯ # changed in JuliaLang/julia#23427
-^(T, x::Irrational{esym}, y::Promotable) = Base.exp(tofloat(T, y))
-literal_pow(T, op, x::Irrational{esym}, ::Val{n}) where {n} = Base.exp(tofloat(T, n))
+^(T, x::Irrational{:ℯ}, y::Promotable) = Base.exp(tofloat(T, y))
+literal_pow(T, op, x::Irrational{:ℯ}, ::Val{n}) where {n} = Base.exp(tofloat(T, n))
 
 # literal integer powers are specially handled in Julia
 literal_pow(T, op, x::Irrational, p) = Base.literal_pow(op, tofloat(T, x), p)
