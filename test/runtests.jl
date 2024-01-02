@@ -87,8 +87,8 @@ using ChangePrecision
 end
 import .Foo
 @testset "include" begin
-    @test Foo.foo(1) === 1.0f0 / 3
-    @test Foo.foo(1.0) === 1.0 / 3
+    @test Foo.Bar.foo(1) === 1.0f0 / 3
+    @test Foo.Bar.foo(1.0) === 1.0 / 3
 end
 
 @testset "bigfloat" begin
