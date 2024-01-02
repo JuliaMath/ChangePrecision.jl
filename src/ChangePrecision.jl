@@ -101,13 +101,8 @@ end
 
 # calls to include(f) are changed to include(T, mod, f) so that
 # @changeprecision can apply recursively to included files.
-function include(T, mod, filename::AbstractString)
-    # use the undocumented parse_input_line function so that we preserve
-    # the filename and line-number information.
-    s = string("begin; ", read(filename, String), "\nend\n")
-    expr = Base.parse_input_line(s, filename=filename)
-    Core.eval(mod, changeprecision(T, expr))
-end
+include(T, mod, filename::AbstractString) =
+    Base.include(expr -> changeprecision(T, expr), mod, filename)
 
 """
     @changeprecision T expression
