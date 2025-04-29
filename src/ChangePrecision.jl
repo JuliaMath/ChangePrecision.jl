@@ -62,6 +62,11 @@ const changefuncs = Set([randfuncs..., matfuncs...,
 
 ############################################################################
 
+# calls to include(f) are changed to include_changeprecision(T, mod, f) so that
+# @changeprecision can apply recursively to included files.
+include_changeprecision(T, mod, filename::AbstractString) =
+    Base.include(expr -> changeprecision(T, expr), mod, filename)
+
 changeprecision(T, x) = x
 changeprecision(T::Type, x::Float64) = parse(T, string(x)) # change float literals
 function changeprecision(T, x::Symbol)
@@ -87,7 +92,7 @@ function changeprecision(T, ex::Expr)
         # mimic Julia 0.6/0.7's lowering to literal_pow
         return Expr(:call, ChangePrecision.literal_pow, T, :^, changeprecision(T, ex.args[2]), Val{ex.args[3]}())
     elseif Meta.isexpr(ex, :call, 2) && ex.args[1] == :include
-        return :($include($T, @__MODULE__, $(ex.args[2])))
+        return :($include_changeprecision($T, @__MODULE__, $(ex.args[2])))
     elseif Meta.isexpr(ex, :call) && ex.args[1] in changefuncs
         return Expr(:call, Core.eval(ChangePrecision, ex.args[1]), T, changeprecision.(T, ex.args[2:end])...)
     elseif Meta.isexpr(ex, :., 2) && ex.args[1] in changefuncs && Meta.isexpr(ex.args[2], :tuple)
@@ -98,11 +103,6 @@ function changeprecision(T, ex::Expr)
         return Expr(ex.head, changeprecision.(T, ex.args)...)
     end
 end
-
-# calls to include(f) are changed to include(T, mod, f) so that
-# @changeprecision can apply recursively to included files.
-include(T, mod, filename::AbstractString) =
-    Base.include(expr -> changeprecision(T, expr), mod, filename)
 
 """
     @changeprecision T expression
